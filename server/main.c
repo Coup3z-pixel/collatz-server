@@ -1,39 +1,192 @@
+#include <sys/stat.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include <sys/stat.h>
 #include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
 
-int main() {
-    char *fifo_path = "/tmp/my_messenger";
-    char buffer[1024];
-    int fd;
+#include "collatz/verify.h"
+#include "connection_pool/addr_pool.h"
 
-    // Create the named pipe (FIFO) if it doesn't exist
-    mkfifo(fifo_path, 0666);
+#define MAX_INPUT_LEN 32
+#define DB_OUTPUT "./db_storage"
 
-    printf("Waiting for input from other terminals...\n");
+const int SERVER_ADDR_ARG = 1;
+const int DB_STORAGE_PATH_ARG = 2;
 
-    while (1) {
-        // Open for reading (this blocks until a client opens it for writing)
-        fd = open(fifo_path, O_RDWR);
-        
-        // Read the data
-        int bytes = read(fd, buffer, sizeof(buffer) - 1);
-        if (bytes > 0) {
-            buffer[bytes] = '\0';
-            printf("Received: %s", buffer);
-        }
+typedef struct {
+  char* server_addr;
+  AddressPool* addr_pool;
+  Database* db_conn;
+} Dependencies;
 
-        char returning_message[] = "hihihi"; 
+typedef struct {
+  char* client_address;
+  char* payload;
+} Message;
 
-        if (write(fd, returning_message, sizeof(returning_message)) == -1) {
-          perror("write");
-        }
+/*
+  * creates a fifo and sends it to server address 
+  * to allow communication to be established
+*/
 
-        
+Dependencies* setup_dependencies(char* server_address, char* db_storage_path)
+{
+  printf("Creating Dependencies for %s\n", server_address);
 
-        close(fd); // Close and loop back to wait for the next "write"
+  Dependencies* dependencies;
+  dependencies = malloc(sizeof(Dependencies));
+
+  dependencies->server_addr = server_address;
+
+  AddressPool* addr_pool;
+  addr_pool = malloc(sizeof(AddressPool));
+  initialize_addr_pool(addr_pool, 64);
+  dependencies->addr_pool = addr_pool;
+
+  Database* db_conn;
+  db_conn = malloc(sizeof(Database));
+  initialize_db_conn(db_conn, db_storage_path);
+  dependencies->db_conn = db_conn;
+  
+  return dependencies;
+}
+
+int get_colon_position(char* msg) 
+{
+  char* colon_ptr = strchr(msg, ':');
+  int colon_idx;
+  colon_idx = colon_ptr == NULL ? -1 : (int)(colon_ptr - msg);
+
+  return colon_idx;
+}
+
+char* parse_client_address(char* message)
+{
+  int colon_idx = get_colon_position(message);
+
+  char* client_address;
+  int client_addr_len = colon_idx == -1 ? strlen(message) - 1 : strlen(message) - colon_idx - 1;
+  client_address = malloc(client_addr_len);
+  strncpy(client_address, message + 1, client_addr_len);
+  
+  return client_address;
+}
+
+unsigned long long parse_user_num(char* message)
+{
+  int colon_idx = get_colon_position(message);
+
+  char* num_str;
+  int num_len = strlen(message) - colon_idx - 1;
+  num_str = malloc(num_len);
+
+  strncpy(num_str, message + colon_idx + 1, num_len);
+
+  return atoi(num_str);
+}
+
+Message* init_message(char* client_address, char* payload)
+{
+  Message* msg;
+  msg = malloc(sizeof(Message));
+
+  msg->client_address = client_address;
+  msg->payload = payload;
+
+  return msg;
+}
+
+
+Message* compute_request(Dependencies* dependencies, char* request)
+{
+  char* client_address = parse_client_address(request);
+
+  switch (request[0]) {
+    case 'a':
+      const int CLIENT_ID = insert_addr_into(dependencies->addr_pool, client_address);
+
+      char* client_payload;
+      client_payload = malloc(log10(CLIENT_ID));
+      sprintf(client_payload, "%d", CLIENT_ID);
+
+      return init_message(client_address, client_payload);
+    case 'c':
+      const int CLIENT_INDEX = atoi(client_address);
+      char* real_client_addr = query_addr_from(dependencies->addr_pool, CLIENT_INDEX);
+
+      uint64_t user_num = parse_user_num(request);
+      bool valid = is_valid_num(dependencies->db_conn, user_num);
+
+      char* response_payload;
+      int resp_payload_len = 0;
+
+      resp_payload_len += log10(user_num) + 4; // length of num
+      resp_payload_len += 4; // length of " is "
+      resp_payload_len += valid ? 4 : 5; // length for "true" and "false" resp.
+
+      response_payload = malloc(resp_payload_len);
+
+      sprintf(response_payload, "%ld", user_num);
+      strcat(response_payload, " is ");
+      strcat(response_payload, valid ? "true" : "false");
+
+      return init_message(real_client_addr, response_payload);
+  }
+
+  return NULL;
+}
+
+void send_response(Message* message)
+{
+  int client_fd = open(message->client_address, O_WRONLY);
+
+  if (write(client_fd, message->payload, strlen(message->payload)) == -1) {
+    perror("write");
+  }
+
+  return;
+}
+
+void run_server(Dependencies* dependencies) 
+{
+  int server_fd;
+  server_fd = open(dependencies->server_addr, O_RDONLY);
+
+  char buffer[1024];
+
+  while (true) {
+    for(;;) {
+      int bytes = read(server_fd, buffer, sizeof(buffer) - 1);
+
+      if (bytes > 0) {
+        buffer[bytes] = '\0';
+        printf("Received: %s\n", buffer);
+      }
+
+      Message* response = compute_request(dependencies, buffer);
+      send_response(response);
     }
+  }
+  
+  return;
+}
 
-    return 0;
+int main(int argc, char *argv[])
+{
+  char server_address[128] = "/tmp/";
+  char db_storage_path[128] = "./";
+
+  strcat(server_address, argv[SERVER_ADDR_ARG]);
+  strcat(db_storage_path, argv[DB_STORAGE_PATH_ARG]);
+
+  printf("WELCOME TO THE COLLATZ CONJECTURE LOCAL SERVER PROTOCOL: \n");
+  printf("Server: %s\n", server_address);
+
+  Dependencies* dependencies = setup_dependencies(server_address, db_storage_path);
+  run_server(dependencies);
+
+  return EXIT_SUCCESS;
 }

@@ -2,15 +2,19 @@
 #include <string.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <math.h>
 
 #include "database.h"
+
+#define PAGE_SIZE 4096
 
 /*
 
 typedef struct {
   char* filename;
   unsigned long long db_size;
-  Page* pages;
 } Database;
 
 */
@@ -20,7 +24,7 @@ typedef struct {
 */
 
 
-void init_db_conn(Database* db, char* file_name)
+void initialize_db_conn(Database* db, char* file_name)
 {
   db->filename = file_name;
   
@@ -33,41 +37,41 @@ void init_db_conn(Database* db, char* file_name)
   if (dr == NULL)  // opendir returns NULL if couldn't open directory
   {
     printf("Could not open current directory" );
-    return 0;
   }
 
-  // Refer https://pubs.opengroup.org/onlinepubs/7990989775/xsh/readdir.html
-  // for readdir()
-  while ((de = readdir(dr)) != NULL)
-    printf("%s\n", de->d_name);
+  int page_count = -2; // -2 for [.., .] in dirs
 
+  while ((de = readdir(dr)) != NULL) {
+    page_count++;
+    printf("%s\n", de->d_name);
+  }
+    
   closedir(dr); 
   
-  db->db_size = 0;
-
+  db->db_size = page_count * PAGE_SIZE;
 }
 
-bool has_num_been_seen(Database* db, int num)
+bool num_has_been_seen(Database* db, uint64_t num)
 {
-  char* partition_name;
+  int offset = num % PAGE_SIZE;
+  int page_count = floor(num / PAGE_SIZE);
 
-  char* filepath;
+  printf("%d\n", offset);
+  printf("%d\n", page_count);
 
-  strcpy(filepath, db->filename);
-  sprintf(partition_name, "%lld\n", num);
-  strcat(filepath, partition_name);
+  char* page_path;
+  int page_path_len = strlen(db->filename) + 1 + log10(page_count);
+  page_path = malloc(page_path_len);
 
-    
-  FILE* partition_file = fopen(filepath, "r");
+  sprintf(page_path, "%s/%d", db->filename, page_count);
 
   // get partition in filename
-  // find value in partition
-  // return if value is 1
+  Page* num_page = parse_page_from_file(page_path);
   
+  // find value in partition
+  bool seen = has_num_been_seen(num_page, offset);
+
+  if (!seen) flip_bit_in_page(num_page, offset);
+
   return true;
-}
-
-void flip_num_in_db(Database* db, int num)
-{
-
 }
