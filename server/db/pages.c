@@ -6,28 +6,50 @@
 
 #include "pages.h"
 
+Page* empty_page()
+{
+  Page* page = malloc(sizeof(Page));
+
+  uint64_t page_len = sizeof(page->contents) / sizeof(uint64_t);
+
+  for (int i = 0; i < page_len; i++) {
+    page->contents[i] = 0;
+  }
+
+  return page;
+}
+
+Page* create_page(Page* page, uint64_t interval, char* contents)
+{
+  uint64_t page_len = sizeof(page->contents) / sizeof(uint64_t);
+
+  for (int i = 0; i < page_len; i++) {
+    page->contents[i] = 0;
+  }
+
+  return page;
+}
+
 Page* parse_page_from_file(char* filepath)
 {
   FILE *fptr;
 
   fptr = fopen(filepath, "r");
 
-  char file_content[PAGE_SIZE];
+  char* file_content = malloc(PAGE_SIZE);
 
   if (fptr == NULL) {
-
+    return empty_page();
   } else {
     fgets(file_content, PAGE_SIZE, fptr);
   }
 
-  
-  Page* page;
-  page = malloc(sizeof(Page));
+  Page* page = malloc(sizeof(Page));
 
-  return page;
+  return create_page(page, 0, file_content);
 }
 
-void save_page_to_file(char* filepath, Page* page)
+void save_page_to_file(Page* page, char* filepath)
 {
   FILE *fptr;
 
@@ -47,7 +69,6 @@ void save_page_to_file(char* filepath, Page* page)
 
 bool has_num_been_seen_in_page(Page* page, int page_num)
 {
-
   int page_index = floor(page_num / sizeof(uint64_t));
   int bit_index = page_num % sizeof(uint64_t);
 
@@ -68,4 +89,13 @@ void flip_bit_in_page(Page* page, int page_num)
   // extracts the specific bit in the bitset
   // takes it out to be compared
   page->contents[page_index] = ((1 << bit_index) | page->contents[page_index]);
+}
+
+void print_page(Page* page)
+{
+  uint64_t page_len = sizeof(page->contents) / sizeof(uint64_t);
+
+  for (int i = 0; i < page_len; i++) {
+    printf("%ld\n", page->contents[i]);
+  }
 }

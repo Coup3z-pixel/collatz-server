@@ -7,22 +7,9 @@
 #include <math.h>
 
 #include "database.h"
+#include "../collatz/util.c"
 
 #define PAGE_SIZE 4096
-
-/*
-
-typedef struct {
-  char* filename;
-  unsigned long long db_size;
-} Database;
-
-*/
-
-/*
-  * Page Size: 4k
-*/
-
 
 void initialize_db_conn(Database* db, char* file_name)
 {
@@ -46,37 +33,47 @@ void initialize_db_conn(Database* db, char* file_name)
   }
     
   closedir(dr); 
-  
-  db->db_size = page_count * PAGE_SIZE;
+}
+
+char* get_page_path(Database* db, int page_count)
+{
+  int page_path_len = strlen(db->filename) + 1 + get_digit_len(page_count);
+  char* page_path;
+  page_path = malloc(page_path_len);
+
+  sprintf(page_path, "%s/%d", db->filename, page_count);
+
+  return page_path;
+}
+
+void flip_bit_in_db(Database* db, uint64_t num)
+{
+  // shifting from 1 to 0
+  num -= 1;
+
+  int page_count = floor(num / PAGE_SIZE);
+
+  char* page_path = get_page_path(db, page_count);
+
+  Page* num_page = parse_page_from_file(page_path);
+
+  flip_bit_in_page(num_page, num);
+  save_page_to_file(num_page, page_path);
 }
 
 bool has_num_been_seen(Database* db, uint64_t num)
 {
-  int offset = num % PAGE_SIZE;
+  // shifting from 1 to 0
+  num -= 1;
   int page_count = floor(num / PAGE_SIZE);
 
-  printf("%d\n", offset);
-  printf("%d\n", page_count);
-
-  char* page_path;
-    int page_path_len = strlen(db->filename) + 1 + log10(page_count) + 10;
-  page_path = malloc(page_path_len);
-
-  
-
-  sprintf(page_path, "%s/%d", db->filename, page_count);
-  
+  char* page_path = get_page_path(db, page_count);
 
   // get partition in filename
   Page* num_page = parse_page_from_file(page_path);
     
   // find value in partition
-  bool seen = has_num_been_seen_in_page(num_page, offset);
+  bool seen = has_num_been_seen_in_page(num_page, num);
 
-  
-  if (!seen) flip_bit_in_page(num_page, offset);
-  
-  save_page_to_file(page_path, num_page);
-
-  return true;
+  return seen;
 }

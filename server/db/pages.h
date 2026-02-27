@@ -11,4 +11,5 @@ typedef struct {
 bool has_num_been_seen_in_page(Page* page, int page_num);
 Page* parse_page_from_file(char* filepath);
 void flip_bit_in_page(Page* page, int page_num);
-void save_page_to_file(char* filepath, Page* page);
+void save_page_to_file(Page* page, char* filepath);
+void print_page(Page* page);

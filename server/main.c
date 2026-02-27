@@ -28,8 +28,10 @@ typedef struct {
 } Message;
 
 /*
-  * creates a fifo and sends it to server address 
-  * to allow communication to be established
+  * Set up Dependencies for the server to run properly
+  * @param dependencies: &Dependencies
+  * @param server_address: &char
+  * @param db_storage_path: &char
 */
 void setup_dependencies(Dependencies* dependencies, char* server_address, char* db_storage_path)
 {
@@ -54,6 +56,10 @@ void setup_dependencies(Dependencies* dependencies, char* server_address, char* 
   printf("\n");
 }
 
+/*
+  * Returns the colon position of the user msg
+  * @param msg: &char
+*/
 int get_colon_position(char* msg) 
 {
   char* colon_ptr = strchr(msg, ':');
@@ -63,6 +69,10 @@ int get_colon_position(char* msg)
   return colon_idx;
 }
 
+/*
+  * Returns the client address or id from user msg
+  * @param message: &char
+*/
 char* parse_client_address(char* message)
 {
   int colon_idx = get_colon_position(message);
@@ -75,6 +85,10 @@ char* parse_client_address(char* message)
   return client_address;
 }
 
+/*
+ * Returns the user number to be computed from message
+ * @param message: &char
+*/
 unsigned long long parse_user_num(char* message)
 {
   int colon_idx = get_colon_position(message);
@@ -88,6 +102,11 @@ unsigned long long parse_user_num(char* message)
   return atoi(num_str);
 }
 
+/*
+  * Creates a Message structs given by params
+  * @param client_address: &char
+  * @param payload: &char
+*/
 Message* init_message(char* client_address, char* payload)
 {
   Message* msg;
@@ -99,7 +118,12 @@ Message* init_message(char* client_address, char* payload)
   return msg;
 }
 
-
+/*
+ * Computes the request given by the message request
+ * using the dependencies given
+ * @param dependencies: Dependencies
+ * @param request: &char
+*/
 Message* compute_request(Dependencies* dependencies, char* request)
 {
   char* client_address = parse_client_address(request);
@@ -159,8 +183,10 @@ void send_response(Message* message)
 void run_server(Dependencies* dependencies) 
 {
 
+  // creates channel of communication
   mkfifo(dependencies->server_addr, 0666);
 
+  // reading from the channel
   int server_fd;
   server_fd = open(dependencies->server_addr, O_RDONLY);
 
@@ -199,7 +225,6 @@ int main(int argc, char *argv[])
 
   Dependencies dependencies = { 0 };
   setup_dependencies(&dependencies, server_address, db_storage_path);
-
   run_server(&dependencies);
 
   return EXIT_SUCCESS;
