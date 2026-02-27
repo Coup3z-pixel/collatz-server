@@ -1,23 +1,30 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "addr_pool.h"
 
+#include "addr_pool.h"
 
 void initialize_addr_pool(AddressPool* addr_pool, const int MAX_SIZE)
 {
   addr_pool->map_size = MAX_SIZE;
   addr_pool->map = (char**)calloc(MAX_SIZE, sizeof(char*));;
+
+  IndexQueue* idxQueue = createQueue();
+
+  for (int i = 1; i < MAX_SIZE; i++)
+    enqueue(idxQueue, i);
+
+  addr_pool->idxQueue = idxQueue;
 }
 
-int insert_addr_into(AddressPool* addr_pool, char* addr)
+int insert_addr(AddressPool* addr_pool, char* addr)
 {
-  int addr_index = rand() % addr_pool->map_size;
+  int addr_index = dequeue(addr_pool->idxQueue);
   addr_pool->map[addr_index] = addr;
   printf("Added Client Address %s at %d\n", addr, addr_index);
   return addr_index;
 }
 
-void remove_addr_into(AddressPool* addr_pool, int addr_index)
+void remove_addr(AddressPool* addr_pool, int addr_index)
 {
   addr_pool->map[addr_index] = 0;
 }

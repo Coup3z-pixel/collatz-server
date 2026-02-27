@@ -8,6 +8,7 @@ typedef struct {
   int64_t contents[PAGE_SIZE / INT64_T_SIZE];
 } Page;
 
-bool has_num_been_seen(Page* page, int page_num);
+bool has_num_been_seen_in_page(Page* page, int page_num);
 Page* parse_page_from_file(char* filepath);
 void flip_bit_in_page(Page* page, int page_num);
+void save_page_to_file(char* filepath, Page* page);
