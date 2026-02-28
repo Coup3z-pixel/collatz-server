@@ -13,5 +13,6 @@ void initialize_addr_pool(AddressPool* addr_pool, const int MAX_SIZE);
 int insert_addr(AddressPool* addr_pool, char* addr);
 void remove_addr(AddressPool* addr_pool, int addr_index);
 char* query_addr_from(AddressPool* addr_pool, int addr_index);
+void print_addr_pool(AddressPool* addr_pool);
 
 #endif // !ADDR_POOL_H

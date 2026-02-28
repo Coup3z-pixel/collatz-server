@@ -32,14 +32,13 @@ void initialize_db_conn(Database* db, char* file_name)
     page_count++;
   }
     
-  closedir(dr); 
+  closedir(dr);
 }
 
 char* get_page_path(Database* db, int page_count)
 {
   int page_path_len = strlen(db->filename) + 1 + get_digit_len(page_count);
-  char* page_path;
-  page_path = malloc(page_path_len);
+  char* page_path = malloc(page_path_len);
 
   sprintf(page_path, "%s/%d", db->filename, page_count);
 
@@ -59,12 +58,16 @@ void flip_bit_in_db(Database* db, uint64_t num)
 
   flip_bit_in_page(num_page, num);
   save_page_to_file(num_page, page_path);
+
+  free(num_page);
+  free(page_path);
 }
 
 bool has_num_been_seen(Database* db, uint64_t num)
 {
   // shifting from 1 to 0
   num -= 1;
+
   int page_count = floor(num / PAGE_SIZE);
 
   char* page_path = get_page_path(db, page_count);
@@ -74,6 +77,9 @@ bool has_num_been_seen(Database* db, uint64_t num)
     
   // find value in partition
   bool seen = has_num_been_seen_in_page(num_page, num);
+
+  free(num_page);
+  free(page_path);
 
   return seen;
 }

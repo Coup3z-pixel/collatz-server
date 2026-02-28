@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "addr_pool.h"
 
@@ -10,7 +11,7 @@ void initialize_addr_pool(AddressPool* addr_pool, const int MAX_SIZE)
 
   IndexQueue* idxQueue = createQueue();
 
-  for (int i = 1; i < MAX_SIZE; i++)
+  for (int i = 0; i < MAX_SIZE; i++)
     enqueue(idxQueue, i);
 
   addr_pool->idxQueue = idxQueue;
@@ -19,14 +20,20 @@ void initialize_addr_pool(AddressPool* addr_pool, const int MAX_SIZE)
 int insert_addr(AddressPool* addr_pool, char* addr)
 {
   int addr_index = dequeue(addr_pool->idxQueue);
-  addr_pool->map[addr_index] = addr;
-  printf("Added Client Address %s at %d\n", addr, addr_index);
+
+  addr_pool->map[addr_index] = malloc(sizeof(addr));
+  memcpy(addr_pool->map[addr_index], addr, strlen(addr));
+
+  printf("Added Client Address %s at %d\n", addr_pool->map[addr_index], addr_index);
+
   return addr_index;
 }
 
 void remove_addr(AddressPool* addr_pool, int addr_index)
 {
   addr_pool->map[addr_index] = 0;
+
+  enqueue(addr_pool->idxQueue, addr_index);
 }
 
 char* query_addr_from(AddressPool* addr_pool, int addr_index)
@@ -36,5 +43,10 @@ char* query_addr_from(AddressPool* addr_pool, int addr_index)
 
 void print_addr_pool(AddressPool* addr_pool)
 {
+  int pool_size = sizeof(addr_pool) / sizeof(char*);
+
+  for (int i = 0; i < pool_size; i++) {
+    printf("%d: %s\n", i, addr_pool->map[i]);
+  }
 
 }

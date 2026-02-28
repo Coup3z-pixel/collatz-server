@@ -8,13 +8,14 @@
 #include <math.h>
 
 #include "collatz/verify.h"
+#include "collatz/util.h"
 #include "connection_pool/addr_pool.h"
 
 #define MAX_INPUT_LEN 32
 #define ADDR_POOL_SIZE 64
 
-const int SERVER_ADDR_ARG = 1;
-const int DB_STORAGE_PATH_ARG = 2;
+#define SERVER_ADDR_ARG 1
+#define DB_STORAGE_PATH_ARG 2
 
 typedef struct {
   char* server_addr;
@@ -129,16 +130,20 @@ Message* compute_request(Dependencies* dependencies, char* request)
   char* client_address = parse_client_address(request);
 
   switch (request[0]) {
-    case 'a':
-      const int CLIENT_ID = insert_addr(dependencies->addr_pool, client_address);
+    case 'a': // append
+      char* appending_request = malloc(strlen(client_address));
+      memcpy(appending_request, client_address, strlen(client_address));
+      const int CLIENT_ID = insert_addr(dependencies->addr_pool, appending_request);
+
+      print_addr_pool(dependencies->addr_pool);
 
       char* client_payload;
-      client_payload = malloc(log10(CLIENT_ID));
+      client_payload = malloc(get_digit_len(CLIENT_ID));
       sprintf(client_payload, "%d", CLIENT_ID);
 
       return init_message(client_address, client_payload);
 
-    case 'c':
+    case 'c': // compute
       const int CLIENT_INDEX = atoi(client_address);
       char* real_client_addr = query_addr_from(dependencies->addr_pool, CLIENT_INDEX);
 
@@ -147,15 +152,12 @@ Message* compute_request(Dependencies* dependencies, char* request)
       printf("Processing %ld for %s\n", user_num, real_client_addr);
 
       bool valid = is_valid_num(dependencies->db_conn, user_num);
+      print_addr_pool(dependencies->addr_pool);
 
       printf("%ld is %s\n", user_num, valid ? "true" : "false");
 
       char* response_payload;
-      int resp_payload_len = 0;
-
-      resp_payload_len += log10(user_num) + 4; // length of num
-      resp_payload_len += 4; // length of " is "
-      resp_payload_len += valid ? 4 : 5; // length for "true" and "false" resp.
+      int resp_payload_len = log10(user_num) + 4 + (valid ? 4 : 5);
 
       response_payload = malloc(resp_payload_len);
 
@@ -186,7 +188,7 @@ void run_server(Dependencies* dependencies)
   // creates channel of communication
   mkfifo(dependencies->server_addr, 0666);
 
-  // reading from the channel
+  // reading from the server channel
   int server_fd;
   server_fd = open(dependencies->server_addr, O_RDONLY);
 
@@ -194,19 +196,20 @@ void run_server(Dependencies* dependencies)
 
   printf("Server has Started at: %s\n", dependencies->server_addr);
 
-  while (true) {
-    for(;;) {
-      int bytes = read(server_fd, buffer, sizeof(buffer) - 1);
+  int pid;
 
-      if (bytes < 0) continue; // continue if not valid byte
-      
-      buffer[bytes] = '\0';
-      printf("Received: %s\n", buffer);
+  for(;;) {
+    
+    int bytes = read(server_fd, buffer, sizeof(buffer) - 1);
 
+    if (bytes < 0) continue; // continue to read again if not valid byte
 
-      Message* response = compute_request(dependencies, buffer);
-      send_response(response);
-    }
+    buffer[bytes] = '\0';
+
+    if (buffer[0] == 0) continue; // empty request
+
+    Message* response = compute_request(dependencies, buffer);
+    send_response(response);
   }
   
   return;
