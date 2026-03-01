@@ -30,7 +30,7 @@ The server computes the request and caches if the number has already been tested
 
 # Improvements ahead 
 
-0. Gotta debug for multiple clients connecting
+0. Gotta debug for multiple clients connecting and JSUT ALWAYS GOTTA DEBUG (IT FEELS ENDLESS)
 1. Threading to allow for simulateous computation of numbers and accepting requests.
 2. I want to make the limit of the testable numbers not limited by sizeof(uint64_t) (8 Bytes =
 n <= 18,446,744,073,709,551,615). This will require a lot of refactoring and prob stealing 
@@ -38,4 +38,4 @@ code from the Big NUM GNU Library (GNU THE GOAT except for the whole emacs thing
 3. Fail safety for malicious messages trying to create errors in the program or possibly
 stealing data (this would be very cool and is prob possible bc i dont care about safety).
 
-***Ordering of improvements is prob how I would like to go through with it***
+***Order of improvements above is prob how I would like to go through with it***
