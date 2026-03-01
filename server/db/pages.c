@@ -4,6 +4,17 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
+#define BYTE_TO_BINARY(byte)  \
+  ((byte) & 0x80 ? '1' : '0'), \
+  ((byte) & 0x40 ? '1' : '0'), \
+  ((byte) & 0x20 ? '1' : '0'), \
+  ((byte) & 0x10 ? '1' : '0'), \
+  ((byte) & 0x08 ? '1' : '0'), \
+  ((byte) & 0x04 ? '1' : '0'), \
+  ((byte) & 0x02 ? '1' : '0'), \
+  ((byte) & 0x01 ? '1' : '0') 
+
 #include "pages.h"
 
 Page* empty_page(Page* page)
@@ -24,11 +35,14 @@ Page* parse_page_from_file(char* filepath)
 
   fptr = fopen(filepath, "rb");
 
-  if (fptr == NULL) {
-    return empty_page(page);
-  } else {
+  if (fptr == NULL)
+    empty_page(page);
+  else
     fread(page->contents, sizeof(uint64_t), PAGE_SIZE / sizeof(uint64_t), fptr);
-  }
+
+  const int page_len = PAGE_SIZE / INT64_T_SIZE;
+  for (int i = 0; i < page_len; i++)
+    printf("%d: %ld\n", i * 8, page->contents[i]);
   
   return page;
 }

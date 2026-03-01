@@ -14,25 +14,6 @@
 void initialize_db_conn(Database* db, char* file_name)
 {
   db->filename = file_name;
-  
-  // get collection of pages in filename
-  struct dirent *de;  // Pointer for directory entry
-
-  // opendir() returns a pointer of DIR type. 
-  DIR *dr = opendir(db->filename);
-
-  if (dr == NULL)  // opendir returns NULL if couldn't open directory
-  {
-    printf("Could not open current directory" );
-  }
-
-  int page_count = -2; // -2 for [.., .] in dirs
-
-  while ((de = readdir(dr)) != NULL) {
-    page_count++;
-  }
-    
-  closedir(dr);
 }
 
 char* get_page_path(Database* db, int page_count)

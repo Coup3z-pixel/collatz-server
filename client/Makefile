@@ -1,5 +1,5 @@
 compile:
-	gcc -Wall -o client client.c
+	gcc -Wall -o client client.c -lm
 
 exec:
 	./client server client1

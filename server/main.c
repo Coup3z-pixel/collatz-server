@@ -6,27 +6,36 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <sys/socket.h>
+#include <netdb.h> 
+#include <netinet/in.h>
 
+#include "model/message.h"
 #include "collatz/verify.h"
 #include "collatz/util.h"
 #include "connection_pool/addr_pool.h"
+#include "tcp/tcp.h"
 
-#define MAX_INPUT_LEN 32
+#define MAX 32
 #define ADDR_POOL_SIZE 64
+#define PORT 8080
 
 #define SERVER_ADDR_ARG 1
 #define DB_STORAGE_PATH_ARG 2
+
+typedef struct sockaddr_in SA;
+
+typedef struct {
+  int* socket_fd;
+  SA servaddr;
+} SocketSettings;
 
 typedef struct {
   char* server_addr;
   AddressPool* addr_pool;
   Database* db_conn;
+  SocketSettings* socket_settings;
 } Dependencies;
-
-typedef struct {
-  char* client_address;
-  char* payload;
-} Message;
 
 /*
   * Set up Dependencies for the server to run properly
@@ -34,8 +43,11 @@ typedef struct {
   * @param server_address: &char
   * @param db_storage_path: &char
 */
-void setup_dependencies(Dependencies* dependencies, char* server_address, char* db_storage_path)
-{
+void setup_dependencies(
+  Dependencies* dependencies,
+  char* server_address,
+  char* db_storage_path
+) {
   printf("Creating Dependencies for %s\n", server_address);
 
   dependencies->server_addr = server_address;
@@ -55,68 +67,16 @@ void setup_dependencies(Dependencies* dependencies, char* server_address, char* 
 
   printf("- Database Connection: %s\n", db_storage_path);
   printf("\n");
-}
 
-/*
-  * Returns the colon position of the user msg
-  * @param msg: &char
-*/
-int get_colon_position(char* msg) 
-{
-  char* colon_ptr = strchr(msg, ':');
-  int colon_idx;
-  colon_idx = colon_ptr == NULL ? -1 : (int)(colon_ptr - msg);
-
-  return colon_idx;
-}
-
-/*
-  * Returns the client address or id from user msg
-  * @param message: &char
-*/
-char* parse_client_address(char* message)
-{
-  int colon_idx = get_colon_position(message);
-
-  char* client_address;
-  int client_addr_len = colon_idx == -1 ? strlen(message) - 1 : strlen(message) - colon_idx - 1;
-  client_address = malloc(client_addr_len);
-  strncpy(client_address, message + 1, client_addr_len);
+  int* socket_fd; 
+  struct sockaddr_in servaddr = { 0 };
+  SocketSettings* socket_settings = malloc(sizeof(SocketSettings));;
   
-  return client_address;
-}
+  setup_sockets(socket_fd, servaddr, PORT);
+  socket_settings->socket_fd = socket_fd;
+  socket_settings->servaddr = servaddr;
 
-/*
- * Returns the user number to be computed from message
- * @param message: &char
-*/
-unsigned long long parse_user_num(char* message)
-{
-  int colon_idx = get_colon_position(message);
-
-  char* num_str;
-  int num_len = strlen(message) - colon_idx - 1;
-  num_str = malloc(num_len);
-
-  strncpy(num_str, message + colon_idx + 1, num_len);
-
-  return atoi(num_str);
-}
-
-/*
-  * Creates a Message structs given by params
-  * @param client_address: &char
-  * @param payload: &char
-*/
-Message* init_message(char* client_address, char* payload)
-{
-  Message* msg;
-  msg = malloc(sizeof(Message));
-
-  msg->client_address = client_address;
-  msg->payload = payload;
-
-  return msg;
+  dependencies->socket_settings = socket_settings;
 }
 
 /*
@@ -125,91 +85,56 @@ Message* init_message(char* client_address, char* payload)
  * @param dependencies: Dependencies
  * @param request: &char
 */
-Message* compute_request(Dependencies* dependencies, char* request)
+Message* compute_request(Dependencies* dependencies, int connfd, char* request)
 {
-  char* client_address = parse_client_address(request);
-
   switch (request[0]) {
-    case 'a': // append
-      char* appending_request = malloc(strlen(client_address));
-      memcpy(appending_request, client_address, strlen(client_address));
-      const int CLIENT_ID = insert_addr(dependencies->addr_pool, appending_request);
-
-      print_addr_pool(dependencies->addr_pool);
-
-      char* client_payload;
-      client_payload = malloc(get_digit_len(CLIENT_ID));
-      sprintf(client_payload, "%d", CLIENT_ID);
-
-      return init_message(client_address, client_payload);
-
     case 'c': // compute
-      const int CLIENT_INDEX = atoi(client_address);
-      char* real_client_addr = query_addr_from(dependencies->addr_pool, CLIENT_INDEX);
-
       uint64_t user_num = parse_user_num(request);
-
-      printf("Processing %ld for %s\n", user_num, real_client_addr);
-
       bool valid = is_valid_num(dependencies->db_conn, user_num);
-      print_addr_pool(dependencies->addr_pool);
 
-      printf("%ld is %s\n", user_num, valid ? "true" : "false");
+      int resp_payload_len = get_digit_len(user_num) + 4 + (valid ? 4 : 5);
+      char* response_payload = malloc(resp_payload_len);
+      sprintf(response_payload, "%ld is %s", user_num, valid ? "true" : "false");
+      printf("%s\n", response_payload);
 
-      char* response_payload;
-      int resp_payload_len = log10(user_num) + 4 + (valid ? 4 : 5);
-
-      response_payload = malloc(resp_payload_len);
-
-      sprintf(response_payload, "%ld", user_num);
-      strcat(response_payload, " is ");
-      strcat(response_payload, valid ? "true" : "false");
-
-      return init_message(real_client_addr, response_payload);
+      return init_message(connfd, response_payload);
   }
 
   return NULL;
 }
 
-void send_response(Message* message)
-{
-  int client_fd = open(message->client_address, O_WRONLY);
-
-  if (write(client_fd, message->payload, strlen(message->payload)) == -1) {
-    perror("write");
-  }
-
-  return;
-}
-
+/*
+  * Starts the server from accepting client requests then
+  * computing those requests
+*/
 void run_server(Dependencies* dependencies) 
 {
+  int connfd, len;
+  struct sockaddr_in cli;
 
-  // creates channel of communication
-  mkfifo(dependencies->server_addr, 0666);
+  len = sizeof(cli);
+  
+  // Accept the data packet from client and verification 
+  connfd = accept(*dependencies->socket_settings->socket_fd, (SA*)&cli, &len); 
+  if (connfd < 0) { 
+      printf("server accept failed...\n"); 
+      exit(0); 
+  } 
+  else
+      printf("server accept the client...\n");
 
-  // reading from the server channel
-  int server_fd;
-  server_fd = open(dependencies->server_addr, O_RDONLY);
+  char buff[MAX]; 
 
-  char buffer[1024];
+  for (;;) { 
+    bzero(buff, MAX); 
 
-  printf("Server has Started at: %s\n", dependencies->server_addr);
+    // read the message from client and copy it in buffer 
+    read(connfd, buff, sizeof(buff)); 
 
-  int pid;
+    printf("From client: %s\t \n", buff); 
 
-  for(;;) {
-    
-    int bytes = read(server_fd, buffer, sizeof(buffer) - 1);
-
-    if (bytes < 0) continue; // continue to read again if not valid byte
-
-    buffer[bytes] = '\0';
-
-    if (buffer[0] == 0) continue; // empty request
-
-    Message* response = compute_request(dependencies, buffer);
-    send_response(response);
+    Message* msg = compute_request(dependencies, connfd, buff);
+    send_response(msg);
   }
   
   return;
