@@ -9,17 +9,12 @@
 
 #include "pages.h"
 
-Page* empty_page(Page* page)
-{
-  uint64_t page_len = sizeof(page->contents) / sizeof(uint64_t);
-
-  for (int i = 0; i < page_len; i++) {
-    page->contents[i] = 0;
-  }
-
-  return page;
-}
-
+/*
+* Returns an empty page if the file doesn't exist or fills a page with content
+* from the saved file
+* @param char* filepath
+* @return Page* the page struct that has been parsed from filepath
+*/
 Page* parse_page_from_file(char* filepath)
 {
   FILE *fptr;
@@ -27,7 +22,7 @@ Page* parse_page_from_file(char* filepath)
 
   fptr = fopen(filepath, "rb");
 
-  if (fptr == NULL) empty_page(page);
+  if (fptr == NULL) ; // if null no need to fill the already empty page
   else fread(page->contents, sizeof(uint64_t), PAGE_SIZE / sizeof(uint64_t), fptr);
 
   page->filepath = malloc(strlen(filepath));
@@ -36,6 +31,10 @@ Page* parse_page_from_file(char* filepath)
   return page;
 }
 
+/*
+  * Writes to the page content to page.filepath
+  * @param Page* page the page being written
+*/
 void save_page_to_file(Page* page)
 {
   FILE *fptr;
@@ -56,6 +55,11 @@ typedef struct {
   int bit_index;
 } PageCord;
 
+/*
+  * Computes the cordinates of num in the page
+  * @param int num the number being converted to its cordinates
+  * @return PageCord the cordinates of the number in the page
+*/
 PageCord compute_page_cord_from_num(int num)
 {
   PageCord pageCord = {
@@ -66,6 +70,12 @@ PageCord compute_page_cord_from_num(int num)
   return pageCord;
 }
 
+/*
+  * Returns if the number has been seen before
+  * @param Page* page the page where the number is contained
+  * @param int page_num the num being tested for if its been checked
+  * @return bool whether the num has been seen in the page before
+*/
 bool has_num_been_seen_in_page(Page* page, int page_num)
 {
   PageCord pageCord = compute_page_cord_from_num(page_num);
@@ -74,6 +84,11 @@ bool has_num_been_seen_in_page(Page* page, int page_num)
     & page->contents[pageCord.page_index]) >> pageCord.bit_index;
 }
 
+/*
+  * Flips the bit corresponding to page_num in page
+  * @param Page* page the page which page_num lies
+  * @param int page_num the number in the page being flipped
+*/
 void flip_bit_in_page(Page* page, int page_num)
 {
   PageCord pageCord = compute_page_cord_from_num(page_num);
@@ -86,11 +101,15 @@ void flip_bit_in_page(Page* page, int page_num)
   save_page_to_file(page);
 }
 
+/*
+  * Prints the page's content in binary
+  * @param Page* page the page which the information lies in
+*/
 void print_page(Page* page)
 {
   uint64_t page_len = sizeof(page->contents) / sizeof(uint64_t);
 
   for (int i = 0; i < page_len; i++) {
-    printBits(sizeof(page->contents[i]), &page->contents[i]);
+    print_bits(sizeof(page->contents[i]), &page->contents[i]);
   }
 }

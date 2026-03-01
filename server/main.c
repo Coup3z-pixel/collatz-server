@@ -12,7 +12,6 @@
 
 #include "model/message.h"
 #include "collatz/verify.h"
-#include "collatz/util.h"
 #include "connection_pool/addr_pool.h"
 #include "tcp/tcp.h"
 
@@ -25,11 +24,17 @@
 
 typedef struct sockaddr_in SA;
 
+/*
+ * Information of the server socket and address
+*/
 typedef struct {
   int* socket_fd;
   SA servaddr;
 } SocketSettings;
 
+/*
+ * The dependencies required to run the server
+*/
 typedef struct {
   char* server_addr;
   AddressPool* addr_pool;
@@ -84,6 +89,7 @@ void setup_dependencies(
  * using the dependencies given
  * @param dependencies: Dependencies
  * @param request: &char
+ * @return &Message the message that should be sent to the message's respective sockfd
 */
 Message* compute_request(Dependencies* dependencies, int connfd, char* request)
 {
@@ -105,7 +111,8 @@ Message* compute_request(Dependencies* dependencies, int connfd, char* request)
 
 /*
   * Starts the server from accepting client requests then
-  * computing those requests
+  * computing those requests which returns a message to the respective sockfd
+  * @param Dependencies* dependencies: the instances and information needed to run the server
 */
 void run_server(Dependencies* dependencies) 
 {

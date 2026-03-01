@@ -4,10 +4,27 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "message.h"
 
-void printBits(size_t const size, void const * const ptr)
+/*
+ * Returns the length of num
+ * @param int num the num which length of digits we want
+ * @return the number of digits in num
+*/
+int get_digit_len(int num) 
+{
+  if (num == 0) return 1;
+  return log10(num);
+}
+
+/*
+ * Prints the binary given by ptr
+ * @param size_t const size: the size of the content inside the ptr
+ * @param void const * const ptr: the pointer to the content
+*/
+void print_bits(size_t const size, void const * const ptr)
 {
     unsigned char *b = (unsigned char*) ptr;
     unsigned char byte;
@@ -23,8 +40,8 @@ void printBits(size_t const size, void const * const ptr)
 }
 
 /*
- * Gets the user requested num 
- * after the colon in message
+ * Gets the user_num from message format: xxx:user_num
+ * @param char* message the message given by the user
 */
 int parse_user_num(char* message)
 {
@@ -37,8 +54,9 @@ int parse_user_num(char* message)
 }
 
 /*
-  * Returns the colon position of the user msg
-  * @param msg: &char
+  * Returns the colon position of the user msg format cxx:xxxx
+  * @param char* msg the message seen in the request
+  * @return int the position of the colon in msg
 */
 int get_colon_position(char* msg) 
 {
@@ -51,7 +69,8 @@ int get_colon_position(char* msg)
 
 /*
   * Returns the client address or id from user msg
-  * @param message: &char
+  * @param char* message the message seen in the requests
+  * @return char* the sockfd for the client address
 */
 char* parse_client_address(char* message)
 {
@@ -67,8 +86,9 @@ char* parse_client_address(char* message)
 
 /*
   * Creates a Message structs given by params
-  * @param client_address: &char
-  * @param payload: &char
+  * @param int connfd the connection file descriptor of the client
+  * @param char* payload the msg being sent back to the client
+  * @return Message* the message composed from the params
 */
 Message* init_message(int connfd, char* payload)
 {
@@ -83,7 +103,7 @@ Message* init_message(int connfd, char* payload)
 
 /*
   * Sends message to associated client addr
-  * @param Message: &Message
+  * @param Message* message the message which will be used to send information to client
 */
 void send_response(Message* message)
 {

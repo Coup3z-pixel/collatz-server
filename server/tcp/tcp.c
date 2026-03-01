@@ -7,9 +7,15 @@
 
 typedef struct sockaddr_in SA;
 
+/*
+  * @ref https://www.geeksforgeeks.org/c/tcp-server-client-implementation-in-c/
+  * Creates the file descriptors and fills servaddr
+  * @param int* socket_fd the file descriptor the socket fd
+  * @param struct sockaddr_in servaddr the socket server address
+  * @param const int PORT the port of the server address (defined in main macros)
+*/
 void setup_sockets(int* socket_fd, struct sockaddr_in servaddr, const int PORT)
 {
-
   // socket create and verification 
   *socket_fd = socket(AF_INET, SOCK_STREAM, 0); 
   if (*socket_fd == -1) { 
@@ -41,6 +47,4 @@ void setup_sockets(int* socket_fd, struct sockaddr_in servaddr, const int PORT)
   } 
   else
     printf("Server listening..\n"); 
-
-
 }
