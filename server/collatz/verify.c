@@ -16,6 +16,7 @@ bool is_valid_num(Database* db, unsigned long long num) {
   else num_is_valid = is_valid_num(db, 3 * num + 1); 
 
   if (num_is_valid) flip_bit_in_db(db, num);
+  if (has_num_been_seen(db, num) != true) printf("THERE IS AN ERROR IN THE DB\n");
 
   return num_is_valid;
 }

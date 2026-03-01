@@ -26,41 +26,32 @@ char* get_page_path(Database* db, int page_count)
   return page_path;
 }
 
-void flip_bit_in_db(Database* db, uint64_t num)
+Page* get_page_from_num(uint64_t num)
 {
   // shifting from 1 to 0
   num -= 1;
 
   int page_count = floor(num / PAGE_SIZE);
+  int page_num = num % PAGE_SIZE;
 
   char* page_path = get_page_path(db, page_count);
+  return parse_page_from_file(page_path);
+}
 
-  Page* num_page = parse_page_from_file(page_path);
-
-  flip_bit_in_page(num_page, num);
+void flip_bit_in_db(Database* db, uint64_t num)
+{
+  Page* num_page = get_page_from_num(num);
+  
+  flip_bit_in_page(num_page, page_num);
   save_page_to_file(num_page, page_path);
-
-  free(num_page);
-  free(page_path);
 }
 
 bool has_num_been_seen(Database* db, uint64_t num)
 {
-  // shifting from 1 to 0
-  num -= 1;
-
-  int page_count = floor(num / PAGE_SIZE);
-
-  char* page_path = get_page_path(db, page_count);
-
-  // get partition in filename
-  Page* num_page = parse_page_from_file(page_path);
-    
+  Page* num_page = get_page_from_num(num);
+      
   // find value in partition
-  bool seen = has_num_been_seen_in_page(num_page, num);
-
-  free(num_page);
-  free(page_path);
+  bool seen = has_num_been_seen_in_page(num_page, page_num);
 
   return seen;
 }

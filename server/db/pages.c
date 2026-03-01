@@ -4,16 +4,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
-#define BYTE_TO_BINARY(byte)  \
-  ((byte) & 0x80 ? '1' : '0'), \
-  ((byte) & 0x40 ? '1' : '0'), \
-  ((byte) & 0x20 ? '1' : '0'), \
-  ((byte) & 0x10 ? '1' : '0'), \
-  ((byte) & 0x08 ? '1' : '0'), \
-  ((byte) & 0x04 ? '1' : '0'), \
-  ((byte) & 0x02 ? '1' : '0'), \
-  ((byte) & 0x01 ? '1' : '0') 
+#include "../model/message.h"
 
 #include "pages.h"
 
@@ -40,10 +31,14 @@ Page* parse_page_from_file(char* filepath)
   else
     fread(page->contents, sizeof(uint64_t), PAGE_SIZE / sizeof(uint64_t), fptr);
 
+  /*
   const int page_len = PAGE_SIZE / INT64_T_SIZE;
-  for (int i = 0; i < page_len; i++)
-    printf("%d: %ld\n", i * 8, page->contents[i]);
-  
+  for (int i = 0; i < page_len; i++) {
+    printf("%d: ", i * 64);
+    // printBits(sizeof(uint64_t), &page->contents[i]);
+  }
+  */
+      
   return page;
 }
 
@@ -62,10 +57,25 @@ void save_page_to_file(Page* page, char* filepath)
   return;
 }
 
+typedef struct {
+  int page_index;
+  int bit_index;
+} PageCord;
+
+PageCord* compute_page_cord_from_num(int num)
+{
+  PageCord pageCord = {
+    floor(num / (sizeof(uint64_t) * 8)),
+    page_num % (sizeof(uint64_t) * 8)
+  };
+  
+  return &pageCord;
+}
+
 bool has_num_been_seen_in_page(Page* page, int page_num)
 {
-  int page_index = floor(page_num / sizeof(uint64_t));
-  int bit_index = page_num % sizeof(uint64_t);
+  int page_index = floor(page_num / (sizeof(uint64_t) * 8)); //size of a uint64_t and its 8 bits
+  int bit_index = page_num % (sizeof(uint64_t) * 8);
 
   // gets the specific bitset
   // extracts the specific bit in the bitset
@@ -75,12 +85,15 @@ bool has_num_been_seen_in_page(Page* page, int page_num)
 
 void flip_bit_in_page(Page* page, int num)
 {
-  int page_index = floor(num / sizeof(uint64_t));
-  int bit_index = num % sizeof(uint64_t);
+  int page_index = floor(num / (sizeof(uint64_t) * 8)); //size of a uint64_t and its 8 bits
+  int bit_index = num % (sizeof(uint64_t) * 8);
 
+
+  /*
   printf("Flipping bit for %d\n", num);
-  printf("%d\n", page_index);
-  printf("%d\n", bit_index);
+  printf("Pg Idx: %d\n", page_index);
+  printf("Bit Idx: %d\n", bit_index);
+  */
 
   // gets the specific bitset
   // extracts the specific bit in the bitset
