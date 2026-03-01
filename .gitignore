@@ -1,1 +1,3 @@
 server/db_storage
+out/
+.git
