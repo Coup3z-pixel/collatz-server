@@ -23,9 +23,21 @@ The server computes the request and caches if the number has already been tested
 
 # Running the program
 
+## Flashy way (idk if it works but ik its ugly)
 ```bash
-    make compile
-    make run
+make compile
+make run
+```
+
+## In two terminals
+### Terminal Uno:
+```bash
+    cd server && make exec
+```
+
+### Terminal Dos 
+```bash
+    cd client && make exec
 ```
 
 # Improvements ahead 
@@ -39,3 +51,7 @@ code from the Big NUM GNU Library (GNU THE GOAT except for the whole emacs thing
 stealing data (this would be very cool and is prob possible bc i dont care about safety).
 
 ***Order of improvements above is prob how I would like to go through with it***
+
+# Additional Notes
+
+Bro like the commit history is probably really disgusting so im sorry but also im human allow it fam
