@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <string.h>
 
 #include "../model/message.h"
 
@@ -26,27 +27,20 @@ Page* parse_page_from_file(char* filepath)
 
   fptr = fopen(filepath, "rb");
 
-  if (fptr == NULL)
-    empty_page(page);
-  else
-    fread(page->contents, sizeof(uint64_t), PAGE_SIZE / sizeof(uint64_t), fptr);
+  if (fptr == NULL) empty_page(page);
+  else fread(page->contents, sizeof(uint64_t), PAGE_SIZE / sizeof(uint64_t), fptr);
 
-  /*
-  const int page_len = PAGE_SIZE / INT64_T_SIZE;
-  for (int i = 0; i < page_len; i++) {
-    printf("%d: ", i * 64);
-    // printBits(sizeof(uint64_t), &page->contents[i]);
-  }
-  */
+  page->filepath = malloc(strlen(filepath));
+  strcpy(page->filepath, filepath);
       
   return page;
 }
 
-void save_page_to_file(Page* page, char* filepath)
+void save_page_to_file(Page* page)
 {
   FILE *fptr;
 
-  fptr = fopen(filepath, "wb");
+  fptr = fopen(page->filepath, "wb");
 
   int content_len = sizeof(page->contents) / sizeof(uint64_t);
 
@@ -62,43 +56,34 @@ typedef struct {
   int bit_index;
 } PageCord;
 
-PageCord* compute_page_cord_from_num(int num)
+PageCord compute_page_cord_from_num(int num)
 {
   PageCord pageCord = {
     floor(num / (sizeof(uint64_t) * 8)),
-    page_num % (sizeof(uint64_t) * 8)
+    num % (sizeof(uint64_t) * 8)
   };
   
-  return &pageCord;
+  return pageCord;
 }
 
 bool has_num_been_seen_in_page(Page* page, int page_num)
 {
-  int page_index = floor(page_num / (sizeof(uint64_t) * 8)); //size of a uint64_t and its 8 bits
-  int bit_index = page_num % (sizeof(uint64_t) * 8);
+  PageCord pageCord = compute_page_cord_from_num(page_num);
 
-  // gets the specific bitset
-  // extracts the specific bit in the bitset
-  // takes it out to be compared
-  return ((1 << bit_index) & page->contents[page_index]) >> bit_index == 1;
+  return ((1UL << pageCord.bit_index) \
+    & page->contents[pageCord.page_index]) >> pageCord.bit_index;
 }
 
-void flip_bit_in_page(Page* page, int num)
+void flip_bit_in_page(Page* page, int page_num)
 {
-  int page_index = floor(num / (sizeof(uint64_t) * 8)); //size of a uint64_t and its 8 bits
-  int bit_index = num % (sizeof(uint64_t) * 8);
+  PageCord pageCord = compute_page_cord_from_num(page_num);
 
+  printf("Pg Idx: %d\n", pageCord.page_index);
+  printf("Bit Idx: %d\n", pageCord.bit_index);
 
-  /*
-  printf("Flipping bit for %d\n", num);
-  printf("Pg Idx: %d\n", page_index);
-  printf("Bit Idx: %d\n", bit_index);
-  */
+  page->contents[pageCord.page_index] |= 1UL << pageCord.bit_index;
 
-  // gets the specific bitset
-  // extracts the specific bit in the bitset
-  // takes it out to be compared
-  page->contents[page_index] = ((1 << bit_index) | page->contents[page_index]);
+  save_page_to_file(page);
 }
 
 void print_page(Page* page)
@@ -106,6 +91,6 @@ void print_page(Page* page)
   uint64_t page_len = sizeof(page->contents) / sizeof(uint64_t);
 
   for (int i = 0; i < page_len; i++) {
-    printf("%ld\n", page->contents[i]);
+    printBits(sizeof(page->contents[i]), &page->contents[i]);
   }
 }

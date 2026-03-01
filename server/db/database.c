@@ -26,32 +26,43 @@ char* get_page_path(Database* db, int page_count)
   return page_path;
 }
 
-Page* get_page_from_num(uint64_t num)
+typedef struct {
+  int page_count;
+  int page_num;
+} DatabaseCord;
+
+DatabaseCord compute_db_cords(uint64_t num)
 {
-  // shifting from 1 to 0
-  num -= 1;
+  DatabaseCord db_cord = {
+    floor(num / PAGE_SIZE),
+    num % PAGE_SIZE
+  };
 
-  int page_count = floor(num / PAGE_SIZE);
-  int page_num = num % PAGE_SIZE;
+  return db_cord;
+}
 
-  char* page_path = get_page_path(db, page_count);
+Page* get_page_from_num(Database* db, DatabaseCord* db_cord)
+{
+  char* page_path = get_page_path(db, db_cord->page_count);
   return parse_page_from_file(page_path);
 }
 
 void flip_bit_in_db(Database* db, uint64_t num)
 {
-  Page* num_page = get_page_from_num(num);
+  DatabaseCord db_cord = compute_db_cords(num - 1);
+  Page* num_page = get_page_from_num(db, &db_cord);
   
-  flip_bit_in_page(num_page, page_num);
-  save_page_to_file(num_page, page_path);
+  flip_bit_in_page(num_page, db_cord.page_num);
+
+  return;
 }
 
 bool has_num_been_seen(Database* db, uint64_t num)
 {
-  Page* num_page = get_page_from_num(num);
+  DatabaseCord db_cord = compute_db_cords(num - 1);
+  Page* num_page = get_page_from_num(db, &db_cord);
       
-  // find value in partition
-  bool seen = has_num_been_seen_in_page(num_page, page_num);
+  bool seen = has_num_been_seen_in_page(num_page, db_cord.page_num);
 
   return seen;
 }
